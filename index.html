@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commute Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Commute Tracker</h1>
+      <button class="btn btn-ghost" id="settings-btn">&#9881; Settings</button>
+    </header>
+
+    <div id="month-nav">
+      <div></div>
+      <div class="nav-center">
+        <button class="btn btn-icon" id="prev-month">&#8249;</button>
+        <h2 id="month-title"></h2>
+        <button class="btn btn-icon" id="next-month">&#8250;</button>
+      </div>
+      <div class="nav-right">
+        <button class="btn btn-sm btn-secondary" id="export-btn">&#8659; Export</button>
+      </div>
+    </div>
+
+    <main>
+      <div id="setup-banner" class="hidden">
+        <span>&#9888; Configure your addresses and API key to start tracking commutes.</span>
+        <button class="btn btn-sm btn-primary" id="setup-btn">Open Settings</button>
+      </div>
+
+      <div id="calendar-list"></div>
+
+      <div id="month-summary">
+        <span>Monthly total</span>
+        <strong id="total-km">0.0 km</strong>
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="btn btn-icon" data-close="settings-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="api-key">OpenRouteService API Key</label>
+          <div class="input-row">
+            <input type="password" id="api-key" placeholder="Paste your API key here">
+            <button class="btn btn-sm btn-secondary" id="toggle-api-key">Show</button>
+          </div>
+          <small>Free account at <a href="https://openrouteservice.org" target="_blank">openrouteservice.org</a> &mdash; 2000 requests/day</small>
+        </div>
+        <div class="form-group">
+          <label for="home-address">Home Address</label>
+          <div class="input-row">
+            <input type="text" id="home-address" placeholder="e.g. Prinsengracht 263, Amsterdam">
+            <button class="btn btn-sm btn-secondary" id="verify-home">Verify</button>
+          </div>
+          <span class="addr-status" id="home-status"></span>
+        </div>
+        <div class="form-group">
+          <label for="work-address">Work Address</label>
+          <div class="input-row">
+            <input type="text" id="work-address" placeholder="e.g. Coolsingel 40, Rotterdam">
+            <button class="btn btn-sm btn-secondary" id="verify-work">Verify</button>
+          </div>
+          <span class="addr-status" id="work-status"></span>
+        </div>
+        <div class="form-group">
+          <label>Auto-fill work days</label>
+          <small>Selected days are pre-filled with a Home &#8594; Work entry each month.</small>
+          <div class="day-checks">
+            <label class="check-day"><input type="checkbox" name="workday" value="1"> Mon</label>
+            <label class="check-day"><input type="checkbox" name="workday" value="2"> Tue</label>
+            <label class="check-day"><input type="checkbox" name="workday" value="3"> Wed</label>
+            <label class="check-day"><input type="checkbox" name="workday" value="4"> Thu</label>
+            <label class="check-day"><input type="checkbox" name="workday" value="5"> Fri</label>
+            <label class="check-day"><input type="checkbox" name="workday" value="6"> Sat</label>
+            <label class="check-day"><input type="checkbox" name="workday" value="0"> Sun</label>
+          </div>
+          <label class="check-toggle">
+            <input type="checkbox" id="auto-round-trip">
+            <span>Auto-fill as round trip</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="settings-modal">Cancel</button>
+        <button class="btn btn-primary" id="save-settings">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Travel Modal -->
+  <div id="travel-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="travel-modal-title">Add Travel</h2>
+        <button class="btn btn-icon" data-close="travel-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Departure</label>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="departure" value="home"> Home</label>
+            <label class="radio-option"><input type="radio" name="departure" value="work"> Work</label>
+            <label class="radio-option"><input type="radio" name="departure" value="custom"> Custom</label>
+          </div>
+          <input type="text" id="departure-custom" class="custom-addr hidden" placeholder="Enter departure address">
+        </div>
+        <div class="form-group">
+          <label>Destination</label>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="destination" value="home"> Home</label>
+            <label class="radio-option"><input type="radio" name="destination" value="work"> Work</label>
+            <label class="radio-option"><input type="radio" name="destination" value="custom"> Custom</label>
+          </div>
+          <input type="text" id="destination-custom" class="custom-addr hidden" placeholder="Enter destination address">
+        </div>
+        <label class="check-toggle">
+          <input type="checkbox" id="round-trip">
+          <span>Round trip <span class="hint-text">(calculates &#215;2)</span></span>
+        </label>
+        <div class="alt-distance">
+          <div class="alt-row">
+            <span>Or fixed distance:</span>
+            <input type="number" id="fixed-km" min="0.1" step="0.1" placeholder="e.g. 23.4">
+            <span class="unit-label">km</span>
+            <button class="btn btn-sm btn-outline" id="use-fixed-btn">Use</button>
+          </div>
+          <small class="hint-text">Enter one-way distance &mdash; applies &#215;2 if round trip is checked.</small>
+        </div>
+        <div id="distance-result" class="hidden">
+          <div class="distance-display">
+            <span>Driving distance</span>
+            <strong id="calc-distance"></strong>
+          </div>
+          <div id="roundtrip-detail" class="route-sub hidden"></div>
+          <div class="route-labels">
+            <span id="route-from-label"></span>
+            <span id="route-arrow" class="arrow">&#8594;</span>
+            <span id="route-to-label"></span>
+          </div>
+        </div>
+        <div id="travel-error" class="error-msg hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="travel-modal">Cancel</button>
+        <button class="btn btn-outline" id="calc-btn">Calculate Distance</button>
+        <button class="btn btn-primary hidden" id="save-travel-btn">Save Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
