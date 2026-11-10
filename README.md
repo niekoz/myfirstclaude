@@ -9,7 +9,7 @@ A browser-based tool to track and report your monthly work commute distances. No
 - **Custom routes** — add any departure and destination address, not just home and work
 - **Fixed distance entry** — bypass the routing API and enter a known km value directly
 - **Auto-fill work days** — configure your regular work days (e.g. Mon–Fri) and have them pre-filled automatically; delete individual days as needed
-- **Excel export** — download the full month as an `.xlsx` file including dates, route details, and full addresses
+- **Excel export** — download the full month as an `.xlsx` file including dates, route details, full addresses, and the reimbursement amount per trip and in total
 - **Persistent storage** — all data is saved in the browser's localStorage
 
 ## Setup
@@ -29,7 +29,8 @@ Click **⚙ Settings** and:
 2. Enter your home address and click **Verify**
 3. Enter your work address and click **Verify**
 4. Optionally select your regular work days for auto-fill
-5. Click **Save Settings**
+5. Set your reimbursement rate per km (default €0.23)
+6. Click **Save Settings**
 
 ## Usage
 
@@ -49,7 +50,7 @@ When work days are configured in Settings, those days are automatically shown wi
 
 ### Exporting
 
-Click **↙ Export** in the month navigation bar to download an Excel file for the current month. The file includes:
+Click **↙ Export** in the month navigation bar to download an Excel file for the current month. The rate per km is shown under the title, and the last row holds the total km and total amount; the amounts are Excel formulas, so changing the rate in the sheet recalculates them. The file includes:
 
 | Column | Content |
 |---|---|
@@ -59,6 +60,7 @@ Click **↙ Export** in the month navigation bar to download an Excel file for t
 | Destination | Home / Work / custom short name |
 | Type | One-way or Round trip |
 | Distance (km) | Total km recorded |
+| Amount (€) | Distance × the rate per km from Settings |
 | Full addresses | Complete departure and destination addresses |
 
 ## Technology

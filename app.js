@@ -76,6 +76,11 @@ const DAY_NAMES        = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL   = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES      = ['January','February','March','April','May','June',
                           'July','August','September','October','November','December'];
+const DEFAULT_KM_RATE  = 0.23;
+
+function getKmRate(settings) {
+  return Number.isFinite(settings.kmRate) ? settings.kmRate : DEFAULT_KM_RATE;
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -234,6 +239,7 @@ function openSettingsModal() {
     cb.checked = workDays.includes(Number(cb.value));
   });
   document.getElementById('auto-round-trip').checked = !!s.autoRoundTrip;
+  document.getElementById('km-rate').value = getKmRate(s);
 
   openModal('settings-modal');
 }
@@ -286,6 +292,9 @@ function saveSettings() {
   s.workDays = [...document.querySelectorAll('input[name="workday"]:checked')]
     .map(cb => Number(cb.value));
   s.autoRoundTrip = document.getElementById('auto-round-trip').checked;
+
+  const rate = parseFloat(document.getElementById('km-rate').value);
+  s.kmRate = Number.isFinite(rate) && rate >= 0 ? rate : DEFAULT_KM_RATE;
 
   Storage.saveSettings(s);
   closeModal('settings-modal');
@@ -512,12 +521,23 @@ function exportToExcel() {
   const showAuto  = workDays.length > 0 && autoKm !== null && settings.homeCoords && settings.workCoords;
 
   const daysInMonth = new Date(state.year, state.month + 1, 0).getDate();
+  const rate        = getKmRate(settings);
+  const EUR_FORMAT  = '"€" #,##0.00';
+  const KM_FORMAT   = '0.0';
   const rows = [];
 
-  // Title
+  // Row numbers below are 1-based Excel rows; the rate lives in B2 and data starts on row 5.
   rows.push([`Commute Report – ${MONTH_NAMES[state.month]} ${state.year}`]);
+  rows.push(['Rate per km', { t: 'n', v: rate, z: EUR_FORMAT }]);
   rows.push([]);
-  rows.push(['Date', 'Day', 'Departure', 'Destination', 'Type', 'Distance (km)', 'Full addresses']);
+  rows.push(['Date', 'Day', 'Departure', 'Destination', 'Type', 'Distance (km)', 'Amount (€)', 'Full addresses']);
+  const firstDataRow = rows.length + 1;
+
+  const kmCell = km => ({ t: 'n', v: km, z: KM_FORMAT });
+  const amountCell = km => {
+    const excelRow = rows.length + 1;
+    return { t: 'n', v: km * rate, f: `F${excelRow}*$B$2`, z: EUR_FORMAT };
+  };
 
   let total = 0;
 
@@ -529,33 +549,48 @@ function exportToExcel() {
     const manual  = travels[key] || [];
 
     if (showAuto && workDays.includes(dow) && !deletedAuto.has(key)) {
+      const km = parseFloat(autoKm.toFixed(1));
       rows.push([
         dateStr, dayStr,
         'Home', 'Work',
         settings.autoRoundTrip ? 'Round trip' : 'One-way',
-        parseFloat(autoKm.toFixed(1)),
+        kmCell(km),
+        amountCell(km),
         `${settings.homeAddress} → ${settings.workAddress}`,
       ]);
-      total += autoKm;
+      total += km;
     }
 
     manual.forEach(entry => {
       const depAddr  = entry.departureLabel  || entry.departureShort;
       const destAddr = entry.destinationLabel || entry.destinationShort;
+      const km = parseFloat(entry.distance.toFixed(1));
       rows.push([
         dateStr, dayStr,
         entry.departureShort,
         entry.destinationShort,
         entry.roundTrip ? 'Round trip' : 'One-way',
-        parseFloat(entry.distance.toFixed(1)),
+        kmCell(km),
+        amountCell(km),
         `${depAddr} → ${destAddr}`,
       ]);
-      total += entry.distance;
+      total += km;
     });
   }
 
+  const lastDataRow = rows.length;
   rows.push([]);
-  rows.push(['', '', '', '', 'Total', parseFloat(total.toFixed(1)), '']);
+  const totalRow  = rows.length + 1;
+  const hasData   = lastDataRow >= firstDataRow;
+  const totalKm   = Math.round(total * 10) / 10;
+  rows.push([
+    '', '', '', '', 'Total',
+    hasData
+      ? { t: 'n', v: totalKm, f: `SUM(F${firstDataRow}:F${lastDataRow})`, z: KM_FORMAT }
+      : kmCell(0),
+    { t: 'n', v: Math.round(totalKm * rate * 100) / 100, f: `ROUND(F${totalRow}*$B$2,2)`, z: EUR_FORMAT },
+    '',
+  ]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [
@@ -565,6 +600,7 @@ function exportToExcel() {
     { wch: 13 }, // Destination
     { wch: 11 }, // Type
     { wch: 14 }, // Distance
+    { wch: 12 }, // Amount
     { wch: 52 }, // Full addresses
   ];
 

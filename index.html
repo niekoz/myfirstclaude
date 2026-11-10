@@ -89,6 +89,11 @@
             <span>Auto-fill as round trip</span>
           </label>
         </div>
+        <div class="form-group">
+          <label for="km-rate">Reimbursement rate (&euro; per km)</label>
+          <small>Used to calculate the amount in the Excel export.</small>
+          <input type="number" id="km-rate" min="0" step="0.01" placeholder="0.23">
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-close="settings-modal">Cancel</button>
